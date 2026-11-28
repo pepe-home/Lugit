@@ -18,6 +18,12 @@ export interface LocalisedText {
   en?: string
 }
 
+/** 地理坐标，统一使用 WGS-84；高德底图显示前再转 GCJ-02。 */
+export interface GeoPoint {
+  lat: number
+  lng: number
+}
+
 export type TransferKind = 'in-station' | 'out-of-station' | 'out-of-system'
 
 export interface InterchangeLine {
@@ -42,6 +48,8 @@ export interface Station {
   secondaryName?: LocalisedText
   /** 车站编号，例如「011」。 */
   code?: string
+  /** 站点位置；线网地图与拖放绘制使用。 */
+  geo?: GeoPoint
   transfers: Transfer[]
   /** 停靠本站的车次，空数组表示暂缓开通。 */
   services: ServiceKind[]
@@ -92,7 +100,7 @@ export interface Network {
   stations: Record<string, Station>
 }
 
-export const CURRENT_PROJECT_VERSION = 2
+export const CURRENT_PROJECT_VERSION = 3
 
 export interface Project {
   version: number

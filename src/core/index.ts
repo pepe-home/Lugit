@@ -11,7 +11,14 @@ export {
 export type { AnnounceResult, AnnounceScene, AnnounceTemplates, SceneMode } from './announce'
 export { getMaterialInfo, travelOrder, walkRoute } from './material'
 export type { MaterialInfo } from './material'
-export { lineMemberships, recomputeTransfers, stationsOfLine } from './network'
+export {
+  detachStation,
+  lineMemberships,
+  linesOfStation,
+  mergeStationInto,
+  recomputeTransfers,
+  stationsOfLine,
+} from './network'
 export type {
   CanvasKind,
   CanvasSettings,

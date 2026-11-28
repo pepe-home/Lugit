@@ -4,16 +4,18 @@
  * 只有一份项目文档、没有跨面板的事件流，编辑器又需要频繁做部分更新，
  * 因此用 zustand + 不可变更新，而不是 Redux Toolkit。
  *
- * 线网编辑（增删站、调序、改线名线色）改的是同一份 `Network`；
+ * 线网编辑（增删线、增删站、调序、改名、改线色、合并 / 拆分换乘站）改的是同一份 `Network`；
  * 结构性修改后统一调用 `recomputeTransfers`，换乘关系不手工维护。
  */
 
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import { buildSeedProject } from '@/data/hefei'
+import { HEFEI_CITY_ID, HEFEI_PALETTE } from '@/data/palette'
 import {
   CURRENT_PROJECT_VERSION,
   type CanvasKind,
+  type GeoPoint,
   type Line,
   type LocalisedText,
   type Network,
@@ -22,9 +24,23 @@ import {
   type StationPov,
   type Theme,
 } from '@/core/model'
-import { recomputeTransfers } from '@/core/network'
+import { detachStation, mergeStationInto, recomputeTransfers } from '@/core/network'
 
 export const STORAGE_KEY = 'metro-project'
+
+/** 新建站点没有坐标时的落点（合肥市中心）。 */
+export const DEFAULT_GEO: GeoPoint = { lat: 31.863, lng: 117.283 }
+
+const uid = (prefix: string) =>
+  `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`
+
+const makeStation = (name: LocalisedText, geo?: GeoPoint): Station => ({
+  id: uid('s'),
+  name,
+  geo,
+  transfers: [],
+  services: ['local'],
+})
 
 export const createSeedProject = (): Project => {
   const { network, pov } = buildSeedProject()
@@ -45,13 +61,6 @@ export const createSeedProject = (): Project => {
   }
 }
 
-const newStation = (): Station => ({
-  id: `s-custom-${Date.now().toString(36)}`,
-  name: { zh: '新车站', en: 'New Station' },
-  transfers: [],
-  services: ['local'],
-})
-
 /** 用新的线网替换项目中的线网，并保持视角指向仍然存在的站点。 */
 const withNetwork = (project: Project, network: Network, pov: StationPov): Project => ({
   ...project,
@@ -68,10 +77,15 @@ export interface ProjectState {
   updateLanguage: (language: Project['canvas']['language']) => void
   updateLineName: (lineId: string, name: LocalisedText) => void
   updateLineTheme: (lineId: string, theme: Theme) => void
-  addStation: (lineId: string, afterId?: string) => void
+  addLine: (center: GeoPoint) => void
+  removeLine: (lineId: string) => void
+  addStation: (lineId: string, afterId?: string, geo?: GeoPoint) => void
   moveStation: (lineId: string, stationId: string, delta: number) => void
   removeStation: (lineId: string, stationId: string) => void
   renameStation: (stationId: string, name: LocalisedText) => void
+  moveStationTo: (stationId: string, geo: GeoPoint) => void
+  mergeStations: (sourceId: string, targetId: string) => void
+  splitStation: (lineId: string, stationId: string) => void
   resetNetwork: () => void
 }
 
@@ -123,12 +137,85 @@ export const useProjectStore = create<ProjectState>()(
             },
           },
         })),
-      addStation: (lineId, afterId) =>
+      addLine: (center) =>
+        set((state) => {
+          const { project } = state
+          const index = project.network.lines.length
+          const entry = HEFEI_PALETTE[index % HEFEI_PALETTE.length]
+          const first = makeStation(
+            { zh: '起点站', en: 'Origin' },
+            {
+              lat: center.lat,
+              lng: center.lng - 0.01,
+            },
+          )
+          const second = makeStation(
+            { zh: '终点站', en: 'Terminus' },
+            {
+              lat: center.lat,
+              lng: center.lng + 0.01,
+            },
+          )
+          const line: Line = {
+            id: uid('line'),
+            name: { zh: `新线路 ${index + 1}`, en: `New Line ${index + 1}` },
+            theme: [HEFEI_CITY_ID, entry.id, entry.colour, entry.fg],
+            stations: [first.id, second.id],
+          }
+          const network = recomputeTransfers({
+            ...project.network,
+            lines: [...project.network.lines, line],
+            stations: {
+              ...project.network.stations,
+              [first.id]: first,
+              [second.id]: second,
+            },
+          })
+          return {
+            project: withNetwork(project, network, {
+              ...project.pov,
+              lineId: line.id,
+              currentStationId: first.id,
+              trainTerminalId: undefined,
+            }),
+          }
+        }),
+      removeLine: (lineId) =>
+        set((state) => {
+          const { project } = state
+          const { network } = project
+          if (network.lines.length <= 1) return state
+          const lines = network.lines.filter((line) => line.id !== lineId)
+          if (lines.length === network.lines.length) return state
+
+          const used = new Set(
+            lines.flatMap((line) => [...line.stations, ...(line.branches ?? []).flat()]),
+          )
+          const stations = Object.fromEntries(
+            Object.entries(network.stations).filter(([id]) => used.has(id)),
+          )
+          const nextNetwork = recomputeTransfers({ ...network, lines, stations })
+          const pov =
+            project.pov.lineId === lineId
+              ? {
+                  ...project.pov,
+                  lineId: lines[0].id,
+                  currentStationId: lines[0].stations[0],
+                  trainTerminalId: undefined,
+                }
+              : project.pov
+          return { project: withNetwork(project, nextNetwork, pov) }
+        }),
+      addStation: (lineId, afterId, geo) =>
         set((state) => {
           const { project } = state
           const line = project.network.lines.find((l) => l.id === lineId)
           if (!line) return state
-          const station = newStation()
+          const anchor = afterId ? project.network.stations[afterId] : undefined
+          const stationGeo =
+            geo ??
+            (anchor?.geo ? { lat: anchor.geo.lat, lng: anchor.geo.lng + 0.0035 } : DEFAULT_GEO)
+          const station = makeStation({ zh: '新车站', en: 'New Station' }, stationGeo)
           const stations = [...line.stations]
           const at = afterId ? stations.indexOf(afterId) : stations.length - 1
           stations.splice(at + 1, 0, station.id)
@@ -206,18 +293,56 @@ export const useProjectStore = create<ProjectState>()(
             },
           }
         }),
+      moveStationTo: (stationId, geo) =>
+        set((state) => {
+          const station = state.project.network.stations[stationId]
+          if (!station) return state
+          return {
+            project: {
+              ...state.project,
+              network: {
+                ...state.project.network,
+                stations: {
+                  ...state.project.network.stations,
+                  [stationId]: { ...station, geo },
+                },
+              },
+            },
+          }
+        }),
+      mergeStations: (sourceId, targetId) =>
+        set((state) => {
+          const { project } = state
+          const network = mergeStationInto(project.network, sourceId, targetId)
+          if (network === project.network) return state
+          const pov =
+            project.pov.currentStationId === sourceId
+              ? { ...project.pov, currentStationId: targetId, trainTerminalId: undefined }
+              : project.pov
+          return { project: withNetwork(project, network, pov) }
+        }),
+      splitStation: (lineId, stationId) =>
+        set((state) => {
+          const { project } = state
+          const newId = uid('s')
+          const network = detachStation(project.network, lineId, stationId, newId)
+          if (network === project.network) return state
+          const pov =
+            project.pov.lineId === lineId && project.pov.currentStationId === stationId
+              ? { ...project.pov, currentStationId: newId }
+              : project.pov
+          return { project: withNetwork(project, network, pov) }
+        }),
       resetNetwork: () => set({ project: createSeedProject() }),
     }),
     {
       name: STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
       version: CURRENT_PROJECT_VERSION,
-      // 旧版本（四种物料、非方向性行程）直接回到种子项目，不做逐字段迁移
+      // 旧版本（四种物料、无坐标、非方向性行程）直接回到种子项目，不做逐字段迁移
       migrate: () => ({ project: createSeedProject() }),
       // 只落盘项目文档；动作在每次创建 store 时重新生成
       partialize: (state) => ({ project: state.project }),
     },
   ),
 )
-
-export type { Line }

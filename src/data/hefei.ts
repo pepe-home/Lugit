@@ -3,6 +3,7 @@
  *
  * 站点与线序来源：中文维基百科各线条目与高德地图线网，两条线交会处按同一站名合并；
  * 换乘关系由线序重算，不依赖任何单一线路制作组的标注。
+ * 站点坐标（WGS-84）见 `hefei-geo.ts`，来源 Wikidata。
  * 官方线色见 `palette.ts`。
  *
  * 数据边界（已核实）：
@@ -13,6 +14,7 @@
 
 import type { Line, Network, Station } from '@/core/model'
 import { recomputeTransfers } from '@/core/network'
+import { STATION_GEO } from './hefei-geo'
 import { themeOf } from './palette'
 
 interface LineSeed {
@@ -331,6 +333,7 @@ export const buildSeedNetwork = (): Network => {
       stations[id] ??= {
         id,
         name: { zh, en },
+        geo: STATION_GEO[zh],
         transfers: [],
         services: ['local'],
         noService: seed.suspended?.includes(zh) ? 'under-construction' : undefined,

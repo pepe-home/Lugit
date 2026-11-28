@@ -14,6 +14,7 @@ export const Header = () => {
   const project = useProjectStore((s) => s.project)
   const workspace = useEditorStore((s) => s.workspace)
   const activeCanvas = useEditorStore((s) => s.activeCanvas)
+  const networkView = useEditorStore((s) => s.networkView)
   const setIsExporting = useEditorStore((s) => s.setIsExporting)
   const [busy, setBusy] = useState(false)
   const busyRef = useRef(false)
@@ -23,6 +24,7 @@ export const Header = () => {
   const canvasId = workspace === 'network' ? 'line-map' : activeCanvas
   const canvasLabel = workspace === 'network' ? '线路示意' : CANVAS_LABELS[activeCanvas].zh
   const filename = `${project.name}-${canvasId}`
+  const canExport = workspace === 'station' || networkView === 'schematic'
 
   const handleExport = async (format: 'png' | 'svg') => {
     if (busyRef.current) return
@@ -76,17 +78,26 @@ export const Header = () => {
       </div>
 
       <div className="ml-auto flex items-center gap-3">
-        <span className="hidden text-xs text-muted-foreground sm:inline">{canvasLabel}</span>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => handleExport('svg')} disabled={busy}>
-            <FileCode2 />
-            SVG
-          </Button>
-          <Button size="sm" onClick={() => handleExport('png')} disabled={busy}>
-            <Download />
-            {busy ? '导出中…' : 'PNG'}
-          </Button>
-        </div>
+        {canExport && (
+          <>
+            <span className="hidden text-xs text-muted-foreground sm:inline">{canvasLabel}</span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExport('svg')}
+                disabled={busy}
+              >
+                <FileCode2 />
+                SVG
+              </Button>
+              <Button size="sm" onClick={() => handleExport('png')} disabled={busy}>
+                <Download />
+                {busy ? '导出中…' : 'PNG'}
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </header>
   )

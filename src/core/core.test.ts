@@ -3,7 +3,7 @@ import { buildSeedNetwork } from '@/data/hefei'
 import { composeAnnouncement, DEFAULT_TEMPLATES, resolveScene } from './announce'
 import { layoutLine, getStationStates } from './layout'
 import { getMaterialInfo, walkRoute } from './material'
-import { recomputeTransfers } from './network'
+import { detachStation, linesOfStation, mergeStationInto, recomputeTransfers } from './network'
 import { fromRmgParams, traverseRmgStations } from './rmg-import'
 import type { StationPov } from './model'
 
@@ -61,6 +61,16 @@ describe('seed network', () => {
       }
     }
   })
+
+  it('has a map coordinate for every station inside the Hefei bbox', () => {
+    for (const [stationId, station] of Object.entries(network.stations)) {
+      expect(station.geo, stationId).toBeDefined()
+      expect(station.geo?.lat, stationId).toBeGreaterThan(31.4)
+      expect(station.geo?.lat, stationId).toBeLessThan(32.4)
+      expect(station.geo?.lng, stationId).toBeGreaterThan(116.6)
+      expect(station.geo?.lng, stationId).toBeLessThan(117.9)
+    }
+  })
 })
 
 describe('network edits', () => {
@@ -80,6 +90,32 @@ describe('network edits', () => {
     expect(edited.stations[id('大东门')].transfers).toEqual([])
     // 原线网不被就地修改
     expect(before.transfers).toHaveLength(1)
+  })
+})
+
+describe('transfer editing', () => {
+  it('merges a station from another line into an interchange', () => {
+    const merged = mergeStationInto(network, id('四牌楼'), id('包公园'))
+    expect(merged.stations[id('四牌楼')]).toBeUndefined()
+    expect(linesOfStation(merged, id('包公园'))).toEqual(['hf1', 'hf2'])
+    expect(merged.stations[id('包公园')].transfers[0].lines.map((l) => l.name.zh)).toEqual([
+      '2号线',
+    ])
+    // 原线网不被就地修改
+    expect(network.stations[id('四牌楼')]).toBeDefined()
+  })
+
+  it('refuses to merge two stations on the same line', () => {
+    const merged = mergeStationInto(network, id('包公园'), id('大东门'))
+    expect(merged).toBe(network)
+  })
+
+  it('detaches one line from an interchange into its own station', () => {
+    const detached = detachStation(network, 'hf2', id('大东门'), 's-copy')
+    expect(linesOfStation(detached, id('大东门'))).toEqual(['hf1'])
+    expect(linesOfStation(detached, 's-copy')).toEqual(['hf2'])
+    expect(detached.stations[id('大东门')].transfers).toEqual([])
+    expect(detached.stations['s-copy'].name.zh).toBe('大东门')
   })
 })
 

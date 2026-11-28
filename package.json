@@ -2,7 +2,7 @@
   "name": "metro",
   "version": "0.1.0",
   "private": true,
-  "description": "地铁线网与车站物料制作工具：合肥轨道风格的线网图、站牌、路线图与放送机",
+  "description": "地铁线网编辑与车站物料制作工具：合肥轨道风格的线网地图、站名牌、线路牌与报幕机",
   "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -24,6 +24,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.475.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -32,6 +33,7 @@
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.20",
+    "@types/leaflet": "^1.9.23",
     "@types/node": "^24.19.2",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
