@@ -1,7 +1,9 @@
 /**
- * 路线图：单线横向条图。当前站高亮，已过站置灰，未到站正常，换乘站带线路徽标。
+ * 线路示意：线网工作区的预览画布，单线横向条图。
  *
- * 站点坐标由 `core/layout` 按关键路径法等距计算，支线向下偏移。
+ * 站点坐标由 `core/layout` 按关键路径法等距计算，支线向下偏移；
+ * 当前站高亮、已过站置灰、未到站用线色，便于在编辑站点时即时看到结果。
+ * 线路示意不是车站物料，因此不参与车站物料导出。
  */
 
 import { layoutLine, getStationStates } from '@/core/layout'
@@ -11,7 +13,7 @@ import { MaterialCanvas } from './canvas'
 import { InterchangeBadges, LineBadge } from './line-badge'
 import { StationName } from './station-name'
 
-export interface RailMapProps {
+export interface LineMapProps {
   network: Network
   pov: StationPov
   width: number
@@ -21,10 +23,9 @@ export interface RailMapProps {
 
 const LINE_WIDTH = 12
 const PASSED = '#c4c4c4'
-const FONT_ZH = 24
-const FONT_EN = 10
+const FONT_ZH = 18
 
-export const RailMap = (props: RailMapProps) => {
+export const LineMap = (props: LineMapProps) => {
   const { network, pov, width, height, theme } = props
   const info = getMaterialInfo(network, pov)
   const line = info.line
@@ -41,7 +42,6 @@ export const RailMap = (props: RailMapProps) => {
     endMargin,
   })
 
-  // 支线站点的上下方向：布局中支线在主干下方
   const ordered = [...layout.mainPath, ...layout.branches.flat()]
   const states = getStationStates(info.route, pov.currentStationId)
   const passedSet = new Set(info.passed)
@@ -53,7 +53,7 @@ export const RailMap = (props: RailMapProps) => {
   )
 
   return (
-    <MaterialCanvas kind="railmap" width={width} height={height} theme={theme}>
+    <MaterialCanvas kind="line-map" width={width} height={height} theme={theme}>
       <Header line={line} width={width} height={height} info={info} />
 
       <path
@@ -79,7 +79,6 @@ export const RailMap = (props: RailMapProps) => {
         if (!station || layout.xs[id] === undefined) return null
         const passed = passedSet.has(id)
         const current = states[id] === 0
-        const onBranch = !layout.mainPath.includes(id)
         return (
           <StationMark
             key={id}
@@ -88,7 +87,6 @@ export const RailMap = (props: RailMapProps) => {
             y={layout.ys[id]}
             current={current}
             passed={passed}
-            flipped={onBranch}
             theme={theme}
           />
         )
@@ -127,7 +125,7 @@ const Header = (props: HeaderProps) => {
         fontSize={badgeH * 0.62}
         fill="#111"
       >
-        {line.name.zh} 线路图
+        {line.name.zh} 线路示意
       </text>
       <text
         className="metro-name__en"
@@ -136,7 +134,7 @@ const Header = (props: HeaderProps) => {
         fontSize={badgeH * 0.24}
         fill="#777"
       >
-        {line.name.en} Route Map
+        {line.name.en} Line Map
       </text>
 
       <text
@@ -169,16 +167,12 @@ interface StationMarkProps {
   y: number
   current: boolean
   passed: boolean
-  flipped: boolean
   theme: Theme
 }
 
-/**
- * 单个站点：白底圆点（当前站为线色实心并加外圈），斜排站名与换乘徽标。
- */
+/** 单个站点：白底圆点（当前站为线色实心并加外圈），45° 站名与换乘徽标。 */
 const StationMark = (props: StationMarkProps) => {
   const { station, x, y, current, passed, theme } = props
-  const title = station.transfers.length > 0 ? (station.transfers[0].lines[0].name.zh ?? '') : ''
   const isInterchange = station.transfers.length > 0
 
   return (
@@ -193,13 +187,12 @@ const StationMark = (props: StationMarkProps) => {
 
       <g transform={`translate(${current ? -11 : -9},-14)rotate(-45)`} textAnchor="end">
         <StationName
-          name={station.name}
+          name={{ zh: station.name.zh }}
           x={0}
           y={0}
           anchor="end"
           zhSize={FONT_ZH}
-          enSize={FONT_EN}
-          colour={passed ? '#9a9a9a' : current ? '#c8102e' : '#111'}
+          colour={passed ? '#9a9a9a' : '#111'}
         />
       </g>
 
@@ -214,14 +207,11 @@ const StationMark = (props: StationMarkProps) => {
           />
         </g>
       )}
-      {title && <title>{title}</title>}
     </g>
   )
 }
 
-/**
- * 依据站点顺序生成折线路径。支线高差较大时插入 90° 转角。
- */
+/** 依据站点顺序生成折线路径。支线高差较大时插入 90° 转角。 */
 const buildPath = (ids: string[], xs: Record<string, number>, ys: Record<string, number>) => {
   const parts: string[] = []
   let prev: { x: number; y: number } | undefined

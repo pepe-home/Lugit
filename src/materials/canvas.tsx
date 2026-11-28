@@ -7,10 +7,11 @@
  */
 
 import type { ReactNode } from 'react'
-import type { Theme } from '@/core/model'
+import type { CanvasKind, Theme } from '@/core/model'
 
 interface MaterialCanvasProps {
-  kind: 'destination' | 'runin' | 'railmap' | 'announce'
+  /** 物料类型；线网工作区里的线路示意用 `line-map`。 */
+  kind: CanvasKind | 'line-map'
   width: number
   height: number
   theme: Theme

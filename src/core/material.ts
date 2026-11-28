@@ -1,7 +1,7 @@
 /**
  * 物料数据：站在某一站、朝某一方向时，各物料需要展示什么。
  *
- * 终点站牌、当前站名牌、路线图与放送机的「下一站 / 终点站 / 换乘」都由此派生，
+ * 站名牌、线路牌与报幕机的「方向终点站 / 下一站 / 换乘」都由此派生，
  * 保证多份物料对同一情境的描述一致。
  */
 
@@ -27,7 +27,11 @@ export interface MaterialInfo {
   currentInterchanges: InterchangeLine[]
 }
 
-const travelSegmentsOf = (network: Network, lineId: string): Segment[] => {
+const travelSegmentsOf = (
+  network: Network,
+  lineId: string,
+  direction: StationPov['direction'],
+): Segment[] => {
   const line = network.lines.find((l) => l.id === lineId)
   if (!line) return []
   const segs: Segment[] = []
@@ -40,7 +44,7 @@ const travelSegmentsOf = (network: Network, lineId: string): Segment[] => {
       segs.push({ from: branch[i], to: branch[i + 1] })
     }
   }
-  return segs
+  return direction === 'l' ? segs.map((seg) => ({ from: seg.to, to: seg.from })) : segs
 }
 
 const indexSegments = (segments: Segment[]) => {
@@ -55,7 +59,7 @@ const indexSegments = (segments: Segment[]) => {
 
 /** 沿行车方向从当前站走到终点站（或交路终点）的站点序列。 */
 export const walkRoute = (network: Network, pov: StationPov): string[] => {
-  const { outgoing } = indexSegments(travelSegmentsOf(network, pov.lineId))
+  const { outgoing } = indexSegments(travelSegmentsOf(network, pov.lineId, pov.direction))
   const route = [pov.currentStationId]
   const visited = new Set(route)
   let cursor = pov.currentStationId
@@ -72,7 +76,7 @@ export const walkRoute = (network: Network, pov: StationPov): string[] => {
 
 /** 行车方向的反向可达站点，即已经过的站点。 */
 export const walkBackward = (network: Network, pov: StationPov): string[] => {
-  const { incoming } = indexSegments(travelSegmentsOf(network, pov.lineId))
+  const { incoming } = indexSegments(travelSegmentsOf(network, pov.lineId, pov.direction))
   const passed: string[] = []
   const visited = new Set([pov.currentStationId])
   let cursor = pov.currentStationId
@@ -84,6 +88,13 @@ export const walkBackward = (network: Network, pov: StationPov): string[] => {
     cursor = prev
   }
   return passed
+}
+
+/** 当前线路的全部主干站点，按行车方向排列（线路牌的单行顺序）。 */
+export const travelOrder = (network: Network, pov: StationPov): string[] => {
+  const line = network.lines.find((l) => l.id === pov.lineId)
+  if (!line) return []
+  return pov.direction === 'l' ? [...line.stations].reverse() : [...line.stations]
 }
 
 export const getMaterialInfo = (network: Network, pov: StationPov): MaterialInfo => {

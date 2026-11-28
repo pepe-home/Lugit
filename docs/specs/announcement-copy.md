@@ -1,13 +1,13 @@
-# Spec — 放送机文案
+# Spec — 报幕机文案
 
 ## 要构建什么
 
-- 目标：把「视角 + 场景 + 模板」变成中英文两句播报，并能按行车方向导出整线播报。
+- 目标：把「视角 + 场景 + 模板」变成中英文两句播报，报幕机取其中一句单行滚动；并能按行车方向导出整线播报。
 
 ## 架构与代码对应
 
 - 对应 ARCHITECTURE 模块职责：报播文案 `src/core/announce.ts`。
-- 对应源码入口（文件 / 路径）：`src/core/announce.ts`（`composeAnnouncement`、`composeJourney`、`resolveScene`、`DEFAULT_TEMPLATES`）；界面入口 `src/components/editor/control-panel.tsx` 中 `AnnounceControls.handleExportScripts`。
+- 对应源码入口（文件 / 路径）：`src/core/announce.ts`（`composeAnnouncement`、`composeJourney`、`resolveScene`、`DEFAULT_TEMPLATES`）；界面入口 `src/components/editor/station-panel.tsx` 中 `AnnounceControls.handleExportScripts`；渲染入口 `src/materials/announce.tsx`。
 
 ## 行为
 
@@ -21,6 +21,7 @@
 ## 约束
 
 - 空换乘生成空字符串（不留多余标点）；英文站名中的 `\` 断行符被替换为空格。
+- 报幕机单行显示：语言为「中英」或「中文」时取中文句，只有语言设为英文时取英文句。
 
 ## 边界条件
 
@@ -35,5 +36,5 @@
 
 ## 完成定义
 
-- 如何判定已完成：上述断言在 `src/core/core.test.ts` 通过，界面「导出全线播报」下载的文本与画面一致。
+- 如何判定已完成：上述断言在 `src/core/core.test.ts` 通过，界面「导出整线播报文本」下载的文本与报幕机画面一致。
 - 双向对齐自检：上对齐（ARCHITECTURE 核心模块表「报播文案」）；下对齐（`src/core/announce.ts`、`src/materials/announce.tsx`、`src/core/core.test.ts`）。

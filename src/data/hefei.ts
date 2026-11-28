@@ -11,8 +11,9 @@
  * - 合肥轨道站名没有公开的编号体系，因此不生成车站编号。
  */
 
-import type { InterchangeLine, Line, Network, Station } from '@/core/model'
-import { getPaletteEntry, themeOf } from './palette'
+import type { Line, Network, Station } from '@/core/model'
+import { recomputeTransfers } from '@/core/network'
+import { themeOf } from './palette'
 
 interface LineSeed {
   id: string
@@ -319,7 +320,6 @@ export const buildSeedNetwork = (): Network => {
   const stations: Record<string, Station> = {}
   // 同一座换乘站在多条线中只建一次；编号类信息取第一次出现的线路
   const idByKey = new Map<string, string>()
-  const memberships = new Map<string, string[]>()
   const lines: Line[] = []
 
   for (const seed of LINE_SEEDS) {
@@ -335,7 +335,6 @@ export const buildSeedNetwork = (): Network => {
         services: ['local'],
         noService: seed.suspended?.includes(zh) ? 'under-construction' : undefined,
       }
-      memberships.set(id, [...(memberships.get(id) ?? []), seed.id])
     }
     lines.push({
       id: seed.id,
@@ -345,22 +344,7 @@ export const buildSeedNetwork = (): Network => {
     })
   }
 
-  // 换乘信息：其余线路的线名与线色
-  for (const [id, lineIds] of memberships) {
-    if (lineIds.length < 2) continue
-    const interchanges: InterchangeLine[] = lineIds
-      .filter((lineId) => lineId !== lineIds[0])
-      .map((lineId) => {
-        const palette = getPaletteEntry(lineId)
-        return {
-          theme: themeOf(lineId),
-          name: palette ? { zh: palette.name.zh, en: palette.name.en } : { zh: lineId },
-        }
-      })
-    stations[id].transfers = [{ kind: 'in-station', paidArea: true, lines: interchanges }]
-  }
-
-  return { id: 'hefei', name: '合肥轨道', lines, stations }
+  return recomputeTransfers({ id: 'hefei', name: '合肥轨道', lines, stations })
 }
 
 export const buildSeedProject = () => {
@@ -370,7 +354,8 @@ export const buildSeedProject = () => {
     pov: {
       lineId: 'hf1',
       currentStationId: stationId('大东门'),
-      direction: 'l' as const,
+      // 1 号线站序自张洼向九联圩，`r` 即开往九联圩方向
+      direction: 'r' as const,
       doorSide: 'left' as const,
     },
   }

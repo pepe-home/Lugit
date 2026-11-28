@@ -9,8 +9,9 @@ export {
   PLACEHOLDERS,
 } from './announce'
 export type { AnnounceResult, AnnounceScene, AnnounceTemplates, SceneMode } from './announce'
-export { getMaterialInfo, walkRoute } from './material'
+export { getMaterialInfo, travelOrder, walkRoute } from './material'
 export type { MaterialInfo } from './material'
+export { lineMemberships, recomputeTransfers, stationsOfLine } from './network'
 export type {
   CanvasKind,
   CanvasSettings,

@@ -64,14 +64,14 @@ export interface Segment {
   to: string
 }
 
-/** 物料类型。 */
-export type CanvasKind = 'destination' | 'runin' | 'railmap' | 'announce'
+/** 物料类型：站名牌、线路牌、报幕机。 */
+export type CanvasKind = 'plate' | 'board' | 'announce'
 
 /** 制作物料时站在哪一站、朝哪个方向。 */
 export interface StationPov {
   lineId: string
   currentStationId: string
-  /** 行车方向。 */
+  /** 行车方向：`r` 沿 `Line.stations` 顺序前进，`l` 逆序。 */
   direction: 'l' | 'r'
   /** 本次列车终点站；缺省取该方向上线路的终点站。 */
   trainTerminalId?: string
@@ -92,7 +92,7 @@ export interface Network {
   stations: Record<string, Station>
 }
 
-export const CURRENT_PROJECT_VERSION = 1
+export const CURRENT_PROJECT_VERSION = 2
 
 export interface Project {
   version: number

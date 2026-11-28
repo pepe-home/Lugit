@@ -1,18 +1,15 @@
 import type { AnnounceTemplates, SceneMode } from '@/core/announce'
 import type { CanvasKind, Network, StationPov, Theme } from '@/core/model'
 import { Announce } from './announce'
-import { Destination, type DestinationStyle } from './destination'
-import { RailMap } from './railmap'
-import { RunIn } from './runin'
+import { LineBoard } from './line-board'
+import { StationPlate } from './station-plate'
 import { LED_COLOURS } from './led/led'
 
 export interface MaterialSettings {
-  style: DestinationStyle
   ledColour: keyof typeof LED_COLOURS
   scene: SceneMode
   templates: AnnounceTemplates
   language: 'both' | 'zh' | 'en'
-  showCode: boolean
 }
 
 export interface MaterialProps {
@@ -28,37 +25,33 @@ export interface MaterialProps {
 }
 
 /**
- * 按物料类型渲染对应组件。所有物料共享同一份线网与当前视角。
+ * 按物料类型渲染对应组件。三种物料共享同一份线网与当前视角。
  */
 export const Material = (props: MaterialProps) => {
   const { kind, network, pov, width, height, theme, settings, freeze } = props
   switch (kind) {
-    case 'destination':
+    case 'plate':
       return (
-        <Destination
-          network={network}
-          pov={pov}
-          width={width}
-          height={height}
-          style={settings.style}
-          ledColour={settings.ledColour}
-          theme={theme}
-          freeze={freeze}
-        />
-      )
-    case 'runin':
-      return (
-        <RunIn
+        <StationPlate
           network={network}
           pov={pov}
           width={width}
           height={height}
           theme={theme}
-          showCode={settings.showCode}
+          language={settings.language}
         />
       )
-    case 'railmap':
-      return <RailMap network={network} pov={pov} width={width} height={height} theme={theme} />
+    case 'board':
+      return (
+        <LineBoard
+          network={network}
+          pov={pov}
+          width={width}
+          height={height}
+          theme={theme}
+          language={settings.language}
+        />
+      )
     case 'announce':
       return (
         <Announce
@@ -77,11 +70,12 @@ export const Material = (props: MaterialProps) => {
   }
 }
 
-export const CANVAS_KINDS: CanvasKind[] = ['destination', 'runin', 'railmap', 'announce']
+export const CANVAS_KINDS: CanvasKind[] = ['plate', 'board', 'announce']
 
 export const CANVAS_LABELS: Record<CanvasKind, { zh: string; en: string }> = {
-  destination: { zh: '终点站站牌', en: 'Destination' },
-  runin: { zh: '当前站名牌', en: 'Current station' },
-  railmap: { zh: '路线图', en: 'Route map' },
-  announce: { zh: '放送机', en: 'Announcement' },
+  plate: { zh: '站名牌', en: 'Station plate' },
+  board: { zh: '线路牌', en: 'Line board' },
+  announce: { zh: '报幕机', en: 'Announcement' },
 }
+
+export { boardGeometry } from './line-board'

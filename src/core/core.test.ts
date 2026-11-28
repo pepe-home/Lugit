@@ -3,6 +3,7 @@ import { buildSeedNetwork } from '@/data/hefei'
 import { composeAnnouncement, DEFAULT_TEMPLATES, resolveScene } from './announce'
 import { layoutLine, getStationStates } from './layout'
 import { getMaterialInfo, walkRoute } from './material'
+import { recomputeTransfers } from './network'
 import { fromRmgParams, traverseRmgStations } from './rmg-import'
 import type { StationPov } from './model'
 
@@ -11,7 +12,7 @@ const id = (zh: string) => `s-${zh}`
 const pov = (overrides: Partial<StationPov> = {}): StationPov => ({
   lineId: 'hf1',
   currentStationId: id('大东门'),
-  direction: 'l',
+  direction: 'r',
   doorSide: 'left',
   ...overrides,
 })
@@ -62,6 +63,26 @@ describe('seed network', () => {
   })
 })
 
+describe('network edits', () => {
+  it('drops the transfer when a line stops serving an interchange', () => {
+    const before = network.stations[id('大东门')]
+    expect(before.transfers).toHaveLength(1)
+
+    const edited = recomputeTransfers({
+      ...network,
+      lines: network.lines.map((line) =>
+        line.id === 'hf2'
+          ? { ...line, stations: line.stations.filter((s) => s !== id('大东门')) }
+          : line,
+      ),
+    })
+
+    expect(edited.stations[id('大东门')].transfers).toEqual([])
+    // 原线网不被就地修改
+    expect(before.transfers).toHaveLength(1)
+  })
+})
+
 describe('travel along a line', () => {
   it('walks from the origin towards the end', () => {
     const route = walkRoute(network, pov())
@@ -74,6 +95,14 @@ describe('travel along a line', () => {
   it('stops at the train terminal', () => {
     const route = walkRoute(network, pov({ trainTerminalId: id('合肥南站') }))
     expect(route.at(-1)).toBe(id('合肥南站'))
+  })
+
+  it('travels the other way when direction is left', () => {
+    const info = getMaterialInfo(network, pov({ direction: 'l' }))
+    expect(info.route[1]).toBe(id('明光路'))
+    expect(info.terminalName.zh).toBe('张洼')
+    expect(info.passed[0]).toBe(id('包公园'))
+    expect(info.nextName.zh).toBe('明光路')
   })
 
   it('reports passed stations', () => {

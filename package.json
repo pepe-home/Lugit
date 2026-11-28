@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "地铁线网与车站物料制作工具：合肥轨道风格的线网图、站牌、路线图与放送机",
+  "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "vp dev",
