@@ -1,0 +1,31 @@
+import { defineConfig, lazyPlugins } from 'vite-plus'
+import react from '@vitejs/plugin-react'
+import path from 'node:path'
+
+// 本地开发与预览恒为根路径；
+// CI 注入 PAGES_BASE_PATH 决定线上前缀：项目页 /<repo>/，自定义域或用户页 /
+// 代码不做任何域名或仓库名推断
+const base = process.env.PAGES_BASE_PATH || '/'
+
+export default defineConfig({
+  base,
+  // lazyPlugins 让 vp 在只读配置元数据的场景（如 vp fmt / vp lint）跳过插件工厂，
+  // 避免为了跑个格式化就把整条 React 插件链加载一遍，也避免 tsc 比较插件类型时崩溃
+  plugins: lazyPlugins(() => react()),
+  resolve: {
+    alias: { '@': path.resolve(import.meta.dirname, 'src') },
+  },
+  server: { host: '0.0.0.0', port: 5173 },
+  preview: { host: '0.0.0.0', port: 4173 },
+  fmt: { semi: false, singleQuote: true },
+  lint: {
+    // 必须显式排除，否则 vp lint 会扫描 node_modules
+    ignorePatterns: ['node_modules/**', 'dist/**', '.reference/**'],
+    options: { typeAware: true, typeCheck: true },
+  },
+  test: {
+    // 默认 node 环境跑纯内核测试；组件测试用文件内 docblock 覆写为 jsdom
+    environment: 'node',
+    include: ['src/**/*.test.{ts,tsx}'],
+  },
+})
